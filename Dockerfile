@@ -1,6 +1,6 @@
 FROM python:3.10-slim-bullseye
 
-# Install Chrome dependencies
+# Install Chrome and dependencies
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -16,6 +16,15 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
+# Install ChromeDriver manually to ensure compatibility
+RUN CHROME_VERSION=$(google-chrome-stable --version | awk '{print $3}' | cut -d'.' -f1) && \
+    CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}") && \
+    wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" && \
+    unzip chromedriver_linux64.zip && \
+    mv chromedriver /usr/bin/chromedriver && \
+    chmod +x /usr/bin/chromedriver && \
+    rm chromedriver_linux64.zip
 
 # Set working directory
 WORKDIR /app
@@ -40,7 +49,8 @@ ENV CHROME_BIN=/usr/bin/google-chrome-stable \
 RUN useradd -m -u 1000 botuser && \
     chown -R botuser:botuser /app && \
     mkdir -p /home/botuser/.cache && \
-    chown -R botuser:botuser /home/botuser
+    chown -R botuser:botuser /home/botuser && \
+    chmod +x /usr/bin/chromedriver
 
 # Switch to non-root user
 USER botuser
@@ -48,17 +58,9 @@ USER botuser
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
 # Run with gunicorn
 CMD ["gunicorn", "app:app", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "1", \
      "--threads", "2", \
-     "--timeout", "120", \
-     "--keep-alive", "5", \
-     "--max-requests", "100", \
-     "--max-requests-jitter", "10", \
-     "--log-level", "info"]
+     "--timeout", "0"]
