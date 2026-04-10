@@ -17,14 +17,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Install ChromeDriver manually to ensure compatibility
-RUN CHROME_VERSION=$(google-chrome-stable --version | awk '{print $3}' | cut -d'.' -f1) && \
-    CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}") && \
-    wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" && \
-    unzip chromedriver_linux64.zip && \
-    mv chromedriver /usr/bin/chromedriver && \
-    chmod +x /usr/bin/chromedriver && \
-    rm chromedriver_linux64.zip
+# Install ChromeDriver - FIXED VERSION
+RUN apt-get update && apt-get install -y chromium-driver \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -49,8 +44,7 @@ ENV CHROME_BIN=/usr/bin/google-chrome-stable \
 RUN useradd -m -u 1000 botuser && \
     chown -R botuser:botuser /app && \
     mkdir -p /home/botuser/.cache && \
-    chown -R botuser:botuser /home/botuser && \
-    chmod +x /usr/bin/chromedriver
+    chown -R botuser:botuser /home/botuser
 
 # Switch to non-root user
 USER botuser
@@ -63,4 +57,4 @@ CMD ["gunicorn", "app:app", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "1", \
      "--threads", "2", \
-     "--timeout", "0"]
+     "--timeout", "120"]
